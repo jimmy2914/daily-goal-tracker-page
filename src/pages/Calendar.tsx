@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { CompletionDialog } from "@/components/CompletionDialog";
+import { ImageDialog } from "@/components/ImageDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,14 +12,7 @@ import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, parse, isSameWeek } from "date-fns";
 import { es } from "date-fns/locale";
-import { canCompleteTask } from "@/lib/taskLogic";
-
-interface Task {
-  id: string;
-  title: string;
-  frequency: string;
-  description: string | null;
-}
+import { canCompleteTask, type Task } from "@/lib/taskLogic";
 
 interface Completion {
   task_id: string;
@@ -33,18 +27,23 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isCompletionDialogOpen, setIsCompletionDialogOpen] = useState(false);
   const [taskToComplete, setTaskToComplete] = useState<Task | null>(null);
+  const [selectedImage, setSelectedImage] = useState<{
+    url: string;
+    title?: string;
+    date?: string;
+  } | null>(null);
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tasks")
-        .select("id, title, frequency, description")
+        .select("id, title, frequency, description, assigned_date, schedule_config")
         .eq("user_id", user?.id)
         .eq("active", true);
 
       if (error) throw error;
-      return data as Task[];
+      return data as unknown as Task[];
     },
     enabled: !!user,
   });
@@ -174,6 +173,9 @@ export default function Calendar() {
                   {day}
                 </div>
               ))}
+              {Array.from({ length: startOfMonth(currentMonth).getDay() }).map((_, i) => (
+                <div key={`empty-${i}`} />
+              ))}
               {days.map((day) => {
                 const dayCompletions = getCompletionsForDate(day);
                 const isToday = isSameDay(day, new Date());
@@ -222,13 +224,32 @@ export default function Calendar() {
                 ) : (
                   <div className="grid gap-2">
                     {tasks.filter(task => {
-                      const frequency = task.frequency.toLowerCase();
-                      if (frequency === "semanal") {
-                        return isSameWeek(selectedDate, new Date(), { weekStartsOn: 1 });
+                      const frequency = task.frequency?.toLowerCase() || "";
+                      const assignedDate = parse(task.assigned_date, "yyyy-MM-dd", new Date());
+
+                      if (frequency === "custom") {
+                        let config = task.schedule_config;
+                        if (typeof config === 'string') {
+                          try { config = JSON.parse(config); } catch (e) { return false; }
+                        }
+                        if (config?.days) {
+                          const dayOfWeek = selectedDate.getDay();
+                          const scheduledDays = config.days.map((d: any) => Number(d));
+                          return scheduledDays.includes(dayOfWeek);
+                        }
+                        return false;
                       }
-                      if (frequency === "mensual") {
-                        return isSameMonth(selectedDate, new Date());
+
+                      if (frequency === "semanal" || frequency === "weekly") {
+                        // Only show in the assigned week
+                        return isSameWeek(selectedDate, assignedDate, { weekStartsOn: 1 });
                       }
+
+                      if (frequency === "mensual" || frequency === "monthly") {
+                        // Only show in the assigned month
+                        return isSameMonth(selectedDate, assignedDate);
+                      }
+
                       return true;
                     }).map((task) => {
                       const dateStr = selectedDate.toISOString().split("T")[0];
@@ -276,14 +297,31 @@ export default function Calendar() {
                 <div className="space-y-2">
                   <h3 className="font-medium">Evidencias del día</h3>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {getCompletionsForDate(selectedDate).map((completion, idx) => (
-                      <img
-                        key={idx}
-                        src={completion.image_url}
-                        alt="Evidencia"
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                    ))}
+                    {getCompletionsForDate(selectedDate).map((completion, idx) => {
+                      const task = tasks.find(t => t.id === completion.task_id);
+                      return (
+                        <div
+                          key={idx}
+                          className="relative group cursor-pointer overflow-hidden rounded-lg"
+                          onClick={() => setSelectedImage({
+                            url: completion.image_url,
+                            title: task?.title,
+                            date: completion.completion_date
+                          })}
+                        >
+                          <img
+                            src={completion.image_url}
+                            alt="Evidencia"
+                            className="w-full h-32 object-cover transition-transform group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-white text-xs font-medium px-2 text-center">
+                              {task?.title || "Ver detalle"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -297,6 +335,14 @@ export default function Calendar() {
           task={taskToComplete}
           onComplete={handleCompleteTask}
           selectedDate={selectedDate || undefined}
+        />
+
+        <ImageDialog
+          open={!!selectedImage}
+          onOpenChange={(open) => !open && setSelectedImage(null)}
+          imageUrl={selectedImage?.url || null}
+          taskTitle={selectedImage?.title}
+          completionDate={selectedImage?.date}
         />
       </div>
     </Layout>

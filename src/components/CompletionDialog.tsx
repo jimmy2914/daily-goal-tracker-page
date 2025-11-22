@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Upload, X } from "lucide-react";
+import { Upload, X, Camera } from "lucide-react";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/compression";
 
@@ -24,6 +24,7 @@ export function CompletionDialog({ open, onOpenChange, task, onComplete, selecte
   const [image, setImage] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -109,14 +110,72 @@ export function CompletionDialog({ open, onOpenChange, task, onComplete, selecte
                   </Button>
                 </div>
               ) : (
-                <Label
-                  htmlFor="evidence"
-                  className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer bg-muted/30 hover:bg-muted/50 transition-colors"
-                >
-                  <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                  <span className="text-sm text-muted-foreground">Click para subir imagen</span>
-                  <span className="text-xs text-muted-foreground mt-1">Máximo 5MB</span>
-                </Label>
+                <div className="flex flex-col gap-2">
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error("La imagen debe ser menor a 5MB");
+                          return;
+                        }
+                        if (!file.type.startsWith("image/")) {
+                          toast.error("Solo se permiten imágenes");
+                          return;
+                        }
+                        setImage(file);
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setPreview(reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  >
+                    <Label
+                      htmlFor="evidence"
+                      className={`flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isDragging
+                        ? "border-primary bg-primary/10"
+                        : "bg-muted/30 hover:bg-muted/50"
+                        }`}
+                    >
+                      <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                      <span className="text-sm text-muted-foreground">
+                        Click o arrastra para subir imagen
+                      </span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        Máximo 5MB
+                      </span>
+                    </Label>
+                  </div>
+
+                  <div className="md:hidden">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => document.getElementById("camera-input")?.click()}
+                    >
+                      <Camera className="mr-2 h-4 w-4" />
+                      Tomar Foto
+                    </Button>
+                    <Input
+                      id="camera-input"
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleImageChange}
+                    />
+                  </div>
+                </div>
               )}
               <Input
                 id="evidence"

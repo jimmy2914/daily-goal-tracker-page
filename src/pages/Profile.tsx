@@ -7,11 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { User, Shield, Globe } from "lucide-react";
+import { User, Shield, Globe, Image } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { z } from "zod";
+import { EvidenceListDialog } from "@/components/EvidenceListDialog";
 
 const profileSchema = z.object({
   username: z
@@ -33,6 +34,7 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
   const [username, setUsername] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isEvidenceDialogOpen, setIsEvidenceDialogOpen] = useState(false);
 
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
@@ -187,8 +189,35 @@ export default function Profile() {
                 )}
               </Card>
             </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Image className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-medium">Evidencias</h3>
+              </div>
+              <Card
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => setIsEvidenceDialogOpen(true)}
+              >
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base">Galería de Evidencias</CardTitle>
+                  <Button variant="ghost" size="sm">Ver todas</Button>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription>
+                    Visualiza todas tus fotos y evidencias completadas
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            </div>
           </CardContent>
         </Card>
+
+        <EvidenceListDialog
+          open={isEvidenceDialogOpen}
+          onOpenChange={setIsEvidenceDialogOpen}
+          userId={user?.id || ""}
+        />
       </div>
     </Layout>
   );

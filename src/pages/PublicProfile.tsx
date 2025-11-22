@@ -49,11 +49,20 @@ interface Profile {
     username: string;
 }
 
+import { EvidenceListDialog } from "@/components/EvidenceListDialog";
+import { ImageDialog } from "@/components/ImageDialog";
+
 export default function PublicProfile() {
     const { userId } = useParams();
     const navigate = useNavigate();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+    const [isEvidenceDialogOpen, setIsEvidenceDialogOpen] = useState(false);
+    const [selectedImage, setSelectedImage] = useState<{
+        url: string;
+        title?: string;
+        date?: string;
+    } | null>(null);
 
     // Fetch Profile Info
     const { data: profile } = useQuery({
@@ -309,14 +318,31 @@ export default function PublicProfile() {
                                         <div className="space-y-2">
                                             <h3 className="font-medium">Evidencias del día</h3>
                                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                                {getCompletionsForDate(selectedDate).map((completion, idx) => (
-                                                    <img
-                                                        key={idx}
-                                                        src={completion.image_url}
-                                                        alt="Evidencia"
-                                                        className="w-full h-32 object-cover rounded-lg"
-                                                    />
-                                                ))}
+                                                {getCompletionsForDate(selectedDate).map((completion, idx) => {
+                                                    const task = tasks.find(t => t.id === completion.task_id);
+                                                    return (
+                                                        <div
+                                                            key={idx}
+                                                            className="relative group cursor-pointer overflow-hidden rounded-lg"
+                                                            onClick={() => setSelectedImage({
+                                                                url: completion.image_url,
+                                                                title: task?.title,
+                                                                date: completion.completion_date
+                                                            })}
+                                                        >
+                                                            <img
+                                                                src={completion.image_url}
+                                                                alt="Evidencia"
+                                                                className="w-full h-32 object-cover transition-transform group-hover:scale-105"
+                                                            />
+                                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                                <span className="text-white text-xs font-medium px-2 text-center">
+                                                                    {task?.title || "Ver detalle"}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}
@@ -337,13 +363,17 @@ export default function PublicProfile() {
                                 </CardContent>
                             </Card>
 
-                            <Card>
+                            <Card
+                                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                                onClick={() => setIsEvidenceDialogOpen(true)}
+                            >
                                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                     <CardTitle className="text-sm font-medium">Total Evidencias</CardTitle>
                                     <Image className="h-4 w-4 text-accent" />
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">{allCompletions.length}</div>
+                                    <p className="text-xs text-muted-foreground mt-1">Ver galería completa</p>
                                 </CardContent>
                             </Card>
 
@@ -422,7 +452,22 @@ export default function PublicProfile() {
                         </div>
                     </TabsContent>
                 </Tabs>
-            </div>
-        </Layout>
+
+                <EvidenceListDialog
+                    open={isEvidenceDialogOpen}
+                    onOpenChange={setIsEvidenceDialogOpen}
+                    userId={userId || ""}
+                    username={profile?.username}
+                />
+
+                <ImageDialog
+                    open={!!selectedImage}
+                    onOpenChange={(open) => !open && setSelectedImage(null)}
+                    imageUrl={selectedImage?.url || null}
+                    taskTitle={selectedImage?.title}
+                    completionDate={selectedImage?.date}
+                />
+            </div >
+        </Layout >
     );
 }

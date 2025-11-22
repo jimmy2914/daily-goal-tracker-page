@@ -31,6 +31,7 @@ export function TaskCard({ task, onEdit, onDelete, onComplete, isCompleted }: Ta
     daily: "Diario",
     weekly: "Semanal",
     monthly: "Mensual",
+    custom: "Personalizado",
   };
 
   return (

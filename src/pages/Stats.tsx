@@ -7,8 +7,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, differenceInDays } from "date-fns";
 
+import { useState } from "react";
+import { EvidenceListDialog } from "@/components/EvidenceListDialog";
+import { Button } from "@/components/ui/button";
+
 export default function Stats() {
   const { user } = useAuth();
+  const [isEvidenceDialogOpen, setIsEvidenceDialogOpen] = useState(false);
 
   const { data: tasks = [] } = useQuery({
     queryKey: ["tasks", user?.id],
@@ -189,14 +194,19 @@ export default function Stats() {
         </div>
 
         {completions.length > 0 && (
-          <Card>
+          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => setIsEvidenceDialogOpen(true)}>
             <CardHeader>
-              <CardTitle>Últimas Evidencias</CardTitle>
-              <CardDescription>Tus logros más recientes</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Últimas Evidencias</CardTitle>
+                  <CardDescription>Tus logros más recientes</CardDescription>
+                </div>
+                <Button variant="ghost" size="sm">Ver todas</Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="text-sm text-muted-foreground">
-                Última completación: {new Date(completions[0].completion_date).toLocaleDateString("es-ES", { 
+                Última completación: {new Date(completions[0].completion_date).toLocaleDateString("es-ES", {
                   year: "numeric",
                   month: "long",
                   day: "numeric"
@@ -205,6 +215,12 @@ export default function Stats() {
             </CardContent>
           </Card>
         )}
+
+        <EvidenceListDialog
+          open={isEvidenceDialogOpen}
+          onOpenChange={setIsEvidenceDialogOpen}
+          userId={user?.id || ""}
+        />
       </div>
     </Layout>
   );
